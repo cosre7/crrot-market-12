@@ -1,30 +1,40 @@
-import withHandler from '@libs/server/withHandler';
+import withHandler, { ResponseType } from '@libs/server/withHandler';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import client from '@libs/server/client';
+import twilio from 'twilio';
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+const twilioClient = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+
+async function handler(req: NextApiRequest, res: NextApiResponse<ResponseType>) {
   const { phone, email } = req.body;
-  const payload = phone ? { phone } : { email };
+  const user = phone ? { phone } : email ? { email } : null;
+  if (!user) return res.status(400).json({ ok: false });
+  const payload = Math.floor(100000 + Math.random() * 900000) + '';
   const token = await client.token.create({
     data: {
-      payload: '12345',
+      payload,
       user: {
-        // 조건과 만족하는 user가 있는 경우 token과 연결, 없을 경우 user 생성
         connectOrCreate: {
           where: {
-            ...payload
+            ...user
           },
           create: {
             name: 'Anonymous',
-            ...payload
+            ...user
           }
         }
       }
     }
   });
-  console.log(token);
-
-  return res.status(200).end();
+  if (phone) {
+    const message = await twilioClient.messages.create({
+      messagingServiceSid: process.env.TWILIO_MSID,
+      to: process.env.MY_PHONE!,
+      body: `Your login token is ${payload}.`
+    });
+    console.log(message);
+  }
+  return res.json({ ok: true });
 }
 
 export default withHandler('POST', handler);
