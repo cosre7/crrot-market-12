@@ -5,6 +5,8 @@ import { useRouter } from 'next/router';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { Product, User } from '@prisma/client';
+import useMutation from '@libs/client/useMutation';
+import { cls } from '@libs/client/utils';
 
 interface ProductWithUser extends Product {
   user: User;
@@ -14,12 +16,17 @@ interface ItemDetailResponse {
   ok: boolean;
   product: ProductWithUser;
   relatedProducts: Product[];
+  isLiked: boolean;
 }
 
 const ItemDetail: NextPage = () => {
   const router = useRouter();
   const { data } = useSWR<ItemDetailResponse>(router.query.id ? `/api/products/${router.query.id}` : null);
-
+  const [toggleFav] = useMutation(`/api/products/${router.query.id}/fav`);
+  const onFavClick = () => {
+    // 응답을 기다리지 않고 상태를 변경할 것이기 때문에 await 없음
+    toggleFav({});
+  };
   return (
     <Layout canGoBack>
       <div className='px-4  py-4'>
@@ -40,11 +47,17 @@ const ItemDetail: NextPage = () => {
             <p className=' my-6 text-gray-700'>{data?.product?.description}</p>
             <div className='flex items-center justify-between space-x-2'>
               <Button large text='Talk to seller' />
-              <button className='p-3 rounded-md flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-500'>
+              <button
+                onClick={onFavClick}
+                className={cls(
+                  'p-3 rounded-md flex items-center justify-center',
+                  data?.isLiked ? 'text-red-500 hover:text-red-600' : ' text-gray-400 hover:text-gray-500'
+                )}
+              >
                 <svg
                   className='h-6 w-6 '
                   xmlns='http://www.w3.org/2000/svg'
-                  fill='none'
+                  fill={data?.isLiked ? 'currentColor' : 'none'}
                   viewBox='0 0 24 24'
                   stroke='currentColor'
                   aria-hidden='true'
